@@ -483,12 +483,90 @@ print(score_check, width = Inf)</code></pre>
 <p>After looking at the economically_disadvantaged distribution across
 prompts and the essay score distributions across the top three well
 spread out prompts in terms of economically_disadvantage statuses, it
-seems that the facial action coding system prompt has the best spread of
-essay scores in both the economically disadvantaged and not economically
-disadvantaged groups. So, I chose to sample entries from the facial
-action coding system prompt only for this audit.</p>
+seemed that the facial action coding system prompt has the best spread
+of essay scores in both the economically disadvantaged and not
+economically disadvantaged groups. However, this is a text-dependent
+prompt and the soruce_text field for thid prompt only contained the
+citation (‘Making Mona Lisa Smile’, by Nick D’Alto) rather than the
+original source article, which trained human raters would have had
+access to when scoring source-based evidence use. I then trie dto look
+for this full source text but was not able to find it. Thus, I instead
+checked the Independent-task prompts (which require no source material)
+for a similarly good score spread</p>
+<pre class="r"><code># Seeing which prompts are Independent (no source text needed) vs Source-dependent
+persuade_clean %&gt;%
+  distinct(prompt_name, task) %&gt;%
+  arrange(task, prompt_name)</code></pre>
+<pre><code>## # A tibble: 12 × 2
+##    prompt_name                             task          
+##    &lt;chr&gt;                                   &lt;chr&gt;         
+##  1 &quot;Cell phones at school&quot;                 Independent   
+##  2 &quot;Community service&quot;                     Independent   
+##  3 &quot;Distance learning&quot;                     Independent   
+##  4 &quot;Grades for extracurricular activities&quot; Independent   
+##  5 &quot;Mandatory extracurricular activities&quot;  Independent   
+##  6 &quot;Seeking multiple opinions&quot;             Independent   
+##  7 &quot;Summer projects&quot;                       Independent   
+##  8 &quot;\&quot;A Cowboy Who Rode the Waves\&quot;&quot;       Text dependent
+##  9 &quot;Driverless cars&quot;                       Text dependent
+## 10 &quot;Exploring Venus&quot;                       Text dependent
+## 11 &quot;Facial action coding system&quot;           Text dependent
+## 12 &quot;The Face on Mars&quot;                      Text dependent</code></pre>
+<pre class="r"><code>#Getting the list of Independent prompt names and  checking score spread across economic status for those specific prompts
+independent_prompts &lt;- persuade_clean %&gt;%
+  distinct(prompt_name, task) %&gt;%
+  filter(task == &quot;Independent&quot;) %&gt;%
+  pull(prompt_name)
+
+score_check_independent &lt;- persuade_clean %&gt;%
+  filter(prompt_name %in% independent_prompts) %&gt;%
+  filter(!is.na(holistic_essay_score)) %&gt;%
+  count(prompt_name, economically_disadvantaged, holistic_essay_score) %&gt;%
+  pivot_wider(names_from = holistic_essay_score, values_from = n, values_fill = 0)
+
+print(score_check_independent, width = Inf)</code></pre>
+<pre><code>## # A tibble: 14 × 8
+##    prompt_name                           economically_disadvantaged       `1`
+##    &lt;chr&gt;                                 &lt;chr&gt;                          &lt;int&gt;
+##  1 Cell phones at school                 Economically disadvantaged         8
+##  2 Cell phones at school                 Not economically disadvantaged     2
+##  3 Community service                     Economically disadvantaged        12
+##  4 Community service                     Not economically disadvantaged     5
+##  5 Distance learning                     Economically disadvantaged         4
+##  6 Distance learning                     Not economically disadvantaged     5
+##  7 Grades for extracurricular activities Economically disadvantaged        24
+##  8 Grades for extracurricular activities Not economically disadvantaged     6
+##  9 Mandatory extracurricular activities  Economically disadvantaged         5
+## 10 Mandatory extracurricular activities  Not economically disadvantaged     1
+## 11 Seeking multiple opinions             Economically disadvantaged         2
+## 12 Seeking multiple opinions             Not economically disadvantaged     1
+## 13 Summer projects                       Economically disadvantaged         4
+## 14 Summer projects                       Not economically disadvantaged     2
+##      `2`   `3`   `4`   `5`   `6`
+##    &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt;
+##  1   248   375   103    17     1
+##  2   174   399   236    66     4
+##  3   315   254    91    18     1
+##  4   212   353   208    51     1
+##  5    64   239   319   201    68
+##  6    27   147   338   477   268
+##  7   322   300   106    13     1
+##  8   219   330   245    39     1
+##  9   106   185   181    54     6
+## 10    57   216   483   317    59
+## 11    64   172   218    47     4
+## 12    55   195   509   253    32
+## 13    26   106   221   176    41
+## 14    21   112   328   499   214</code></pre>
+<p>I chose “Distance learning” to be the independent-task prompt that
+the final sample focused on. Unlike the text-dependent prompt,
+independent-task prompts do not require an external source article.
+“Distance learning” also has the ost complete score spread of any
+independent-task prompt since both the economically disadvantaged and
+not economically disadvantaged groups contain a meaningful number of
+essays at every score level, 1 through 6.</p>
 <pre class="r"><code># Sampling entries from the facial action coding system prompt
-chosen_prompt &lt;- &quot;Facial action coding system&quot;
+chosen_prompt &lt;- &quot;Distance learning&quot;
 
 pool &lt;- persuade_clean %&gt;%
   filter(prompt_name == chosen_prompt) %&gt;%
@@ -500,18 +578,18 @@ pool %&gt;%
 <pre><code>## # A tibble: 12 × 3
 ##    economically_disadvantaged     holistic_essay_score     n
 ##    &lt;chr&gt;                                         &lt;dbl&gt; &lt;int&gt;
-##  1 Economically disadvantaged                        1   133
-##  2 Economically disadvantaged                        2   464
-##  3 Economically disadvantaged                        3   498
-##  4 Economically disadvantaged                        4   157
-##  5 Economically disadvantaged                        5    43
-##  6 Economically disadvantaged                        6     5
-##  7 Not economically disadvantaged                    1    42
-##  8 Not economically disadvantaged                    2   214
-##  9 Not economically disadvantaged                    3   294
-## 10 Not economically disadvantaged                    4   177
-## 11 Not economically disadvantaged                    5    96
-## 12 Not economically disadvantaged                    6    44</code></pre>
+##  1 Economically disadvantaged                        1     4
+##  2 Economically disadvantaged                        2    64
+##  3 Economically disadvantaged                        3   239
+##  4 Economically disadvantaged                        4   319
+##  5 Economically disadvantaged                        5   201
+##  6 Economically disadvantaged                        6    68
+##  7 Not economically disadvantaged                    1     5
+##  8 Not economically disadvantaged                    2    27
+##  9 Not economically disadvantaged                    3   147
+## 10 Not economically disadvantaged                    4   338
+## 11 Not economically disadvantaged                    5   477
+## 12 Not economically disadvantaged                    6   268</code></pre>
 <p>The essay scores within the facial action coding system prompt are
 not evenly distributed. Most of them cluster around the middle score
 range, leaving only a few at the extreme scores of 1 or 6. So, a plain
@@ -547,25 +625,34 @@ non_disadv_sample &lt;- sample_group(pool, group_value = &quot;Not economically 
 
 # Checking the score distribution within each sampled group to confirm the bands actually produced a spread 
 disadv_sample %&gt;% count(holistic_essay_score)</code></pre>
-<pre><code>## # A tibble: 6 × 2
+<pre><code>## # A tibble: 5 × 2
 ##   holistic_essay_score     n
 ##                  &lt;dbl&gt; &lt;int&gt;
-## 1                    1     2
-## 2                    2     7
-## 3                    3     4
-## 4                    4     4
-## 5                    5     7
-## 6                    6     1</code></pre>
+## 1                    2     7
+## 2                    3     1
+## 3                    4     8
+## 4                    5     7
+## 5                    6     2</code></pre>
 <pre class="r"><code>non_disadv_sample %&gt;% count(holistic_essay_score)</code></pre>
 <pre><code>## # A tibble: 6 × 2
 ##   holistic_essay_score     n
 ##                  &lt;dbl&gt; &lt;int&gt;
-## 1                    1     2
-## 2                    2     6
-## 3                    3     5
-## 4                    4     4
-## 5                    5     7
+## 1                    1     1
+## 2                    2     8
+## 3                    3     2
+## 4                    4     5
+## 5                    5     8
 ## 6                    6     1</code></pre>
+<p>The banded sample for the economically disadvantaged group includes
+essays scoring 2 through 6, but no essay scoring exactly 1. This is
+because only 4 of the 68 essays in the Low band (scores 1-2) for this
+group were scored a 1, so it is likely that none were randomly selected.
+The not economically disadvantaged group’s sample includes essays across
+all scores, 1 through 6. Since the banded sampling approach samples
+proportionally from each band rather than guaranteeing every individual
+score is included, missing a single rare score value within a band is
+expected and does not affect the overall goal of capturing low, mid, and
+high scoring essays in both groups.</p>
 </div>
 <div id="building-and-saving-the-final-sample" class="section level1">
 <h1>Building and saving the final sample</h1>
@@ -577,23 +664,14 @@ disadv_sample %&gt;% count(holistic_essay_score)</code></pre>
          llm_rationale = NA_character_)
 
 write_csv(final_sample, here(&quot;data&quot;, &quot;processed&quot;, &quot;persuade_sample_for_llm_scoring.csv&quot;))</code></pre>
-<pre class="r"><code>final_sample %&gt;%
-  count(economically_disadvantaged, holistic_essay_score) %&gt;%
-  pivot_wider(names_from = holistic_essay_score, values_from = n, values_fill = 0)</code></pre>
-<pre><code>## # A tibble: 2 × 7
-##   economically_disadvantaged       `1`   `2`   `3`   `4`   `5`   `6`
-##   &lt;chr&gt;                          &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt;
-## 1 Economically disadvantaged         2     7     4     4     7     1
-## 2 Not economically disadvantaged     2     6     5     4     7     1</code></pre>
 <p>The final sample for the audit contains 50 essays: 25 from
 economically disadvantaged students and 25 from economically
-non-disadvantaged students for the “Facial action coding system” prompt.
-Within each group, essays that span the holistic 1-6 score range are
-included with roughly equal representation acorss the low(score 1-2),
-mid (score 3-4), and high (score 5-6) bands used for sampling. This was
-done to ensure that the essays that the LLM is presented essays of
-varying quality across both economic status groups rather than
-average-scoring essays.</p>
+non-disadvantaged students for the “Distance learning” prompt. Within
+the not economically disadvantaged group, essays span the full 1-6 score
+range; within the economically disadvantaged group, essays span scores
+2-6, with no essay scoring exactly 1 included (see note above). This
+ensures the LLM is presented with essays of varying quality in both
+economic status groups, rather than only average-scoring essays.</p>
 </div>
 
 

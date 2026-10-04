@@ -52,11 +52,34 @@ score_check <- persuade_clean %>%
 print(score_check, width = Inf)
 ```
 
-After looking at the economically_disadvantaged distribution across prompts and the essay score distributions across the top three well spread out prompts in terms of economically_disadvantage statuses, it seems that the facial action coding system prompt has the best spread of essay scores in both the economically disadvantaged and not economically disadvantaged groups. So, I chose to sample entries from the facial action coding system prompt only for this audit.  
+After looking at the economically_disadvantaged distribution across prompts and the essay score distributions across the top three well spread out prompts in terms of economically_disadvantage statuses, it seemed that the facial action coding system prompt has the best spread of essay scores in both the economically disadvantaged and not economically disadvantaged groups. However, this is a text-dependent prompt and the soruce_text field for thid prompt only contained the citation ('Making Mona Lisa Smile', by Nick D'Alto) rather than the original source article, which trained human raters would have had access to when scoring source-based evidence use. I then trie dto look for this full source text but was not able to find it. Thus, I instead checked the Independent-task prompts (which require no source material) for a similarly good score spread
+
+```{r}
+# Seeing which prompts are Independent (no source text needed) vs Source-dependent
+persuade_clean %>%
+  distinct(prompt_name, task) %>%
+  arrange(task, prompt_name)
+
+#Getting the list of Independent prompt names and  checking score spread across economic status for those specific prompts
+independent_prompts <- persuade_clean %>%
+  distinct(prompt_name, task) %>%
+  filter(task == "Independent") %>%
+  pull(prompt_name)
+
+score_check_independent <- persuade_clean %>%
+  filter(prompt_name %in% independent_prompts) %>%
+  filter(!is.na(holistic_essay_score)) %>%
+  count(prompt_name, economically_disadvantaged, holistic_essay_score) %>%
+  pivot_wider(names_from = holistic_essay_score, values_from = n, values_fill = 0)
+
+print(score_check_independent, width = Inf)
+```
+
+I chose "Distance learning" to be the independent-task prompt that the final sample focused on. Unlike the text-dependent prompt, independent-task prompts do not require an external source article. "Distance learning" also has the ost complete score spread of any independent-task prompt since both the economically disadvantaged and not economically disadvantaged groups contain a meaningful number of essays at every score level, 1 through 6. 
 
 ```{r}
 # Sampling entries from the facial action coding system prompt
-chosen_prompt <- "Facial action coding system"
+chosen_prompt <- "Distance learning"
 
 pool <- persuade_clean %>%
   filter(prompt_name == chosen_prompt) %>%
@@ -99,25 +122,22 @@ disadv_sample %>% count(holistic_essay_score)
 non_disadv_sample %>% count(holistic_essay_score)
 ```
 
+The banded sample for the economically disadvantaged group includes essays scoring 2 through 6, but no essay scoring exactly 1. This is because only 4 of the 68 essays in the Low band (scores 1-2) for this group were scored a 1, so it is likely that none were randomly selected. The not economically disadvantaged group's sample includes essays across all scores, 1 through 6. Since the banded sampling approach samples proportionally from each band rather than guaranteeing every individual score is included, missing a single rare score value within a band is expected and does not affect the overall goal of capturing low, mid, and high scoring essays in both groups.
+
 # Building and saving the final sample
 ```{r}
 final_sample <- bind_rows(disadv_sample, non_disadv_sample) %>%
-  select(essay_id_comp, full_text, source_text, assignment,
-         holistic_essay_score, economically_disadvantaged,
-         ell_status, race_ethnicity, student_disability_status, word_count) %>%
+  select(essay_id_comp, full_text, holistic_essay_score,
+         economically_disadvantaged, ell_status, race_ethnicity,
+         student_disability_status, word_count) %>%
   mutate(llm_score = NA_real_,
          llm_rationale = NA_character_)
 
 write_csv(final_sample, here("data", "processed", "persuade_sample_for_llm_scoring.csv"))
 ```
 
-```{r}
-final_sample %>%
-  count(economically_disadvantaged, holistic_essay_score) %>%
-  pivot_wider(names_from = holistic_essay_score, values_from = n, values_fill = 0)
-```
+The final sample for the audit contains 50 essays: 25 from economically disadvantaged students and 25 from economically non-disadvantaged students for the "Distance learning" prompt. Within the not economically disadvantaged group, essays span the full 1-6 score range; within the economically disadvantaged group, essays span scores 2-6, with no essay scoring exactly 1 included (see note above). This ensures the LLM is presented with essays of varying quality in both economic status groups, rather than only average-scoring essays.
 
-The final sample for the audit contains 50 essays: 25 from economically disadvantaged students and 25 from economically non-disadvantaged students for the "Facial action coding system" prompt. Within each group, essays that span the holistic 1-6 score range are included with roughly equal representation acorss the low(score 1-2), mid (score 3-4), and high (score 5-6) bands used for sampling. This was done to ensure that the essays that the LLM is presented essays of varying quality across both economic status groups rather than average-scoring essays. 
 
 
 
