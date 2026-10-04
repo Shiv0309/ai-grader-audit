@@ -1,0 +1,120 @@
+# Setup 
+```{r}
+library(tidyverse)
+library(here)
+set.seed(42) # ensuring that random sample results are reproducible
+```
+
+# Loading the data
+```{r}
+persuade <- read_csv(here("data", "raw", "persuade_2.0_human_scores_demo_id_github.csv"))
+
+glimpse(persuade)
+```
+
+# Cleaning the data 
+```{r}
+# Checking how many of the rows have NAs for the columns important to this analysis 
+persuade %>%
+  summarise(
+    n_total = n(),
+    na_full_text = sum(is.na(full_text)),
+    na_score = sum(is.na(holistic_essay_score)),
+    na_prompt = sum(is.na(prompt_name)),
+    na_econ_disadv = sum(is.na(economically_disadvantaged)),
+    na_essay_id = sum(is.na(essay_id_comp))
+  )
+```
+
+```{r}
+# Filtering out NAs for economically_disadvantaged
+persuade_clean <- persuade %>% filter(!is.na(economically_disadvantaged))
+
+glimpse(persuade_clean)
+```
+
+# Filtering the data 
+```{r}
+# Seeing the distribution of econmically disdvantged status across different prompts 
+persuade_clean %>% 
+  count(prompt_name, economically_disadvantaged) %>%
+  arrange(desc(n))
+```
+
+```{r}
+# Checking the distribution of essay scores across the three most economically disadvantaged spread out prompts
+score_check <- persuade_clean %>%
+  filter(prompt_name %in% c("Driverless cars", "Exploring Venus", "Facial action coding system")) %>%
+  filter(!is.na(holistic_essay_score)) %>%
+  count(prompt_name, economically_disadvantaged, holistic_essay_score) %>%
+  pivot_wider(names_from = holistic_essay_score, values_from = n, values_fill = 0)
+
+print(score_check, width = Inf)
+```
+
+After looking at the economically_disadvantaged distribution across prompts and the essay score distributions across the top three well spread out prompts in terms of economically_disadvantage statuses, it seems that the facial action coding system prompt has the best spread of essay scores in both the economically disadvantaged and not economically disadvantaged groups. So, I chose to sample entries from the facial action coding system prompt only for this audit.  
+
+```{r}
+# Sampling entries from the facial action coding system prompt
+chosen_prompt <- "Facial action coding system"
+
+pool <- persuade_clean %>%
+  filter(prompt_name == chosen_prompt) %>%
+  filter(!is.na(holistic_essay_score))
+
+pool %>%
+  count(economically_disadvantaged, holistic_essay_score) %>%
+  arrange(economically_disadvantaged, holistic_essay_score)
+```
+
+The essay scores within the facial action coding system prompt are not evenly distributed. Most of them cluster around the middle score range, leaving only a few at the extreme scores of 1 or 6. So, a plain random sample of 25 economically disadvantaged and 25 not economically disadvantaged essays would likely only contain medium-scoring essays. To capture the full range of essay quality in the sample, I group essays into three score bands: low = scores 1-2, mid = scores 3-4, and high = scores 5-6. I then sample proportionally from each band within each economic status group. 
+
+```{r}
+# Defining a function that samples essays proportionally across three score bands (Low, Mid, High) within a given economic status group
+sample_group <- function(data, group_value, n_total = 25) {
+  filtered <- data %>%
+    filter(economically_disadvantaged == group_value) %>%
+    mutate(score_band = case_when(
+      holistic_essay_score <= 2 ~ "Low",
+      holistic_essay_score <= 4 ~ "Mid",
+      TRUE ~ "High"
+    ))
+
+  banded <- filtered %>%
+    group_by(score_band) %>%
+    group_modify(~ slice_sample(.x, n = min(nrow(.x), ceiling(n_total / 3)))) %>%
+    ungroup()
+
+  banded %>%
+    slice_sample(n = min(n_total, nrow(banded)))
+}
+
+# Sampling 25 essays from each economic status group using the banded approach
+disadv_sample     <- sample_group(pool, group_value = "Economically disadvantaged", n_total = 25)
+non_disadv_sample <- sample_group(pool, group_value = "Not economically disadvantaged", n_total = 25)
+
+
+# Checking the score distribution within each sampled group to confirm the bands actually produced a spread 
+disadv_sample %>% count(holistic_essay_score)
+non_disadv_sample %>% count(holistic_essay_score)
+```
+
+# Building and saving the final sample
+```{r}
+final_sample <- bind_rows(disadv_sample, non_disadv_sample) %>%
+  select(essay_id_comp, full_text, holistic_essay_score,
+         economically_disadvantaged, ell_status, race_ethnicity,
+         student_disability_status, word_count) %>%
+  mutate(llm_score = NA_real_,
+         llm_rationale = NA_character_)
+
+write_csv(final_sample, here("data", "processed", "persuade_sample_for_llm_scoring.csv"))
+```
+
+```{r}
+final_sample %>%
+  count(economically_disadvantaged, holistic_essay_score) %>%
+  pivot_wider(names_from = holistic_essay_score, values_from = n, values_fill = 0)
+```
+
+The final sample for the audit contains 50 essays: 25 from economically disadvantaged students and 25 from economically non-disadvantaged students for the "Facial action coding system" prompt. Within each group, essays that span the holistic 1-6 score range are included with roughly equal representation acorss the low(score 1-2), mid (score 3-4), and high (score 5-6) bands used for sampling. This was done to ensure that the essays that the LLM is presented essays of varying quality across both economic status groups rather than average-scoring essays. 
