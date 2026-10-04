@@ -102,9 +102,9 @@ non_disadv_sample %>% count(holistic_essay_score)
 # Building and saving the final sample
 ```{r}
 final_sample <- bind_rows(disadv_sample, non_disadv_sample) %>%
-  select(essay_id_comp, full_text, holistic_essay_score,
-         economically_disadvantaged, ell_status, race_ethnicity,
-         student_disability_status, word_count) %>%
+  select(essay_id_comp, full_text, source_text, assignment,
+         holistic_essay_score, economically_disadvantaged,
+         ell_status, race_ethnicity, student_disability_status, word_count) %>%
   mutate(llm_score = NA_real_,
          llm_rationale = NA_character_)
 
@@ -118,3 +118,7 @@ final_sample %>%
 ```
 
 The final sample for the audit contains 50 essays: 25 from economically disadvantaged students and 25 from economically non-disadvantaged students for the "Facial action coding system" prompt. Within each group, essays that span the holistic 1-6 score range are included with roughly equal representation acorss the low(score 1-2), mid (score 3-4), and high (score 5-6) bands used for sampling. This was done to ensure that the essays that the LLM is presented essays of varying quality across both economic status groups rather than average-scoring essays. 
+
+
+
+
