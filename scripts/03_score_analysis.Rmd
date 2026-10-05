@@ -1,0 +1,102 @@
+This file analyzesthe LLM-scored essay sample produced in `01_sample_essays.RMD` and manually scores via ChatGPT-4o mini (see `scripts/llm_scoring_prompt.txt` for the exact prompt used.)
+
+# Setup
+```{r}
+library(tidyverse)
+library(here)
+```
+
+# Loading the llm_score data
+```{r}
+completed <- read_csv(here("data", "processed", "completed_llm_scoring.csv"))
+
+glimpse(completed)
+
+# making sure that all of the 50 samples contain llm_scores
+completed %>% summarise(missing_llm_score = sum(is.na(llm_score)))
+```
+
+# Previewing the distribution of LLM scores
+```{r}
+completed %>% count(llm_score) %>% arrange(llm_score)
+```
+LLM scores appear clustered towards the mid scores of 3 and 4 with low score of 2 appearing somewhat frequently, high score of 5 appearing very rarely, and the low score of 1 and high score of 6 not appearing at all. 
+
+# Calculating the score gap
+```{r}
+# Computing the score gap 
+completed <- completed %>%
+  mutate(score_gap = llm_score - holistic_essay_score)
+
+# Comparing mean LLM score and mean score gap by economic status group
+summary_table <- completed %>%
+  group_by(economically_disadvantaged) %>%
+  summarise(
+    n = n(),
+    mean_human_score = mean(holistic_essay_score),
+    mean_llm_score   = mean(llm_score),
+    mean_score_gap   = mean(score_gap),
+    sd_score_gap     = sd(score_gap)
+  )
+
+print(summary_table)
+```
+This summary table shows that the mean LLM score was lower than the mean human score for both economically disadvantaged and not economically disadvantaged students. The mean_score_gap between the mean_human_score and mean_llm_score is larger for economically disadvantaged students (-0.52) and for not economically disadvantaged students (-0.12). This suggests that the LLM may be underscoring economically disadvantaged students' essays more than it underscores non-disadvantaged students' essays, relative to the same human-rater baseline. 
+
+# Analyzing the score gap
+```{r}
+# Testing whether the score gap differs significantly by economic status
+t_test_result <- t.test(score_gap ~ economically_disadvantaged, data = completed)
+print(t_test_result)
+```
+I ran a two-sample t-test to check whether this difference i the score gap between the two groups is statistically significant or not. The test produced a p-value of 0.1325. Since this p-value is well above the standard 0.05 threshold, the difference between the economically disadvantaged and not economically disadvantaged groups cannot be considered statistically significant. This might be because the sample size is too small with only 25 essays per group. Another explanation for this could be that the LLM tends to cluster its scores around the mid scores of 3 and 4. This clustering could limit the amount of variation available for a group differnet to show up clearly. 
+
+# Generating visualization
+```{r}
+# Visualizing mean LLM vs. human score by group
+plot_data <- completed %>%
+  group_by(economically_disadvantaged) %>%
+  summarise(
+    `Human Score` = mean(holistic_essay_score),
+    `LLM Score`   = mean(llm_score)
+  ) %>%
+  pivot_longer(cols = c(`Human Score`, `LLM Score`),
+               names_to = "rater", values_to = "mean_score")
+
+ggplot(plot_data, aes(x = economically_disadvantaged, y = mean_score, fill = rater)) +
+  geom_col(position = "dodge") +
+  geom_text(aes(label = round(mean_score, 2)), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, size = 3.0) +
+  labs(
+    title = "Mean Essay Score by Economic Status: LLM vs. Human Raters",
+    x = "Economic Status",
+    y = "Mean Score (1-6 scale)",
+    fill = "Rater"
+  ) +
+  theme_minimal()
+
+ggsave(here("figures", "llm_vs_human_score_by_group.png"), width = 7, height = 5)
+```
+
+```{r}
+# Visualizing mean LLM vs. human score gap by group
+gap_summary <- completed %>%
+  group_by(economically_disadvantaged) %>%
+  summarise(mean_score_gap = mean(score_gap))
+
+ggplot(gap_summary, aes(x = economically_disadvantaged, y = mean_score_gap, fill = economically_disadvantaged)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = round(mean_score_gap, 2)), vjust = 1.5, size = 4, color = "white") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray40") +
+  labs(
+    title = "Mean LLM Score Gap (LLM − Human) by Economic Status",
+    x = NULL,
+    y = "Mean Score Gap"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+ggsave(here("figures", "llm_score_gap_by_group.png"), width = 7, height = 5)
+```
+
