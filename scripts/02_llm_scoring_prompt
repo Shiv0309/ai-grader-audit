@@ -1,7 +1,5 @@
 # This  LLM scoring prompt is rubric-informed, adapted from the PERSUADE Rubric: Holistic Essay Scoring 
-# source-based/independent writing rubric. Each essay in the final_sample was submitted to [model name] in a fresh, 
-# free chat session (where the user was not signed in) using this prompt, with the essay's full_text inserted in place 
-# of [PASTE ESSAY HERE]. 
+# source-based/independent writing rubric. Each essay in the final_sample was submitted to ChatGPT-4o mini in a fresh, free chat session (where the user was not signed in) using this prompt, with the essay's full_text inserted in place of [PASTE ESSAY HERE]. 
 
 After reading each essay, assign a holistic score based on the rubric below. For the following evaluations you will need to use a grading scale between 1 (minimum) and 6 (maximum). The distance between each grade (e.g., 1-2, 3-4, 4-5) should be considered equal.
 
