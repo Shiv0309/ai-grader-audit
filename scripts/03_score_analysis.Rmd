@@ -100,3 +100,8 @@ ggplot(gap_summary, aes(x = economically_disadvantaged, y = mean_score_gap, fill
 ggsave(here("figures", "llm_score_gap_by_group.png"), width = 7, height = 5)
 ```
 
+```{r}
+# Calculating the exact LLM score distribution counts to include the specific distribution numbers in Results section of paper
+completed %>% count(llm_score) %>% arrange(llm_score)
+```
+
